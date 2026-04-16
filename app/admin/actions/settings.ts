@@ -3,6 +3,7 @@
 import dbConnect from "@/lib/mongodb";
 import CompanyDetails from "@/models/CompanyDetails";
 import PaymentOption from "@/models/PaymentOption";
+import BankPaymentOption from "@/models/BankPaymentOption";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import User from "@/models/User";
 import { revalidatePath } from "next/cache";
@@ -54,6 +55,38 @@ export async function deletePaymentOption(id: string) {
     try {
         await dbConnect();
         await PaymentOption.findByIdAndDelete(id);
+        revalidatePath('/admin/settings');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// --- BANK PAYMENT OPTION ACTIONS ---
+export async function addBankPaymentOption(formData: FormData) {
+    try {
+        await dbConnect();
+        await BankPaymentOption.create({
+            bankName: formData.get('bankName'),
+            accountName: formData.get('accountName'),
+            accountNumber: formData.get('accountNumber'),
+            routingNumber: formData.get('routingNumber') || undefined,
+            iban: formData.get('iban') || undefined,
+            swiftCode: formData.get('swiftCode') || undefined,
+            currency: formData.get('currency') || 'USD',
+            instructions: formData.get('instructions') || undefined,
+        });
+        revalidatePath('/admin/settings');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteBankPaymentOption(id: string) {
+    try {
+        await dbConnect();
+        await BankPaymentOption.findByIdAndDelete(id);
         revalidatePath('/admin/settings');
         return { success: true };
     } catch (error: any) {

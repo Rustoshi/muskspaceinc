@@ -3,6 +3,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import CompanyDetails from "@/models/CompanyDetails";
 import PaymentOption from "@/models/PaymentOption";
+import BankPaymentOption from "@/models/BankPaymentOption";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import SettingsTabs from "@/components/admin/SettingsTabs";
 
@@ -17,9 +18,18 @@ export default async function AdminSettingsPage() {
         companyDetails = defaultDetails.toObject();
     }
 
-    // Fetch Payment Options
+    // Fetch Crypto Payment Options
     const rawPaymentOptions = await PaymentOption.find().sort({ createdAt: -1 }).lean();
     const paymentOptions = rawPaymentOptions.map(p => ({
+        ...p,
+        _id: p._id?.toString(),
+        createdAt: p.createdAt?.toISOString(),
+        updatedAt: p.updatedAt?.toISOString()
+    }));
+
+    // Fetch Bank Payment Options
+    const rawBankOptions = await BankPaymentOption.find().sort({ createdAt: -1 }).lean();
+    const bankPaymentOptions = rawBankOptions.map((p: any) => ({
         ...p,
         _id: p._id?.toString(),
         createdAt: p.createdAt?.toISOString(),
@@ -56,6 +66,7 @@ export default async function AdminSettingsPage() {
             <SettingsTabs
                 companyDetails={serializedCompanyDetails}
                 paymentOptions={paymentOptions}
+                bankPaymentOptions={bankPaymentOptions}
                 investmentPlans={investmentPlans}
             />
         </div>

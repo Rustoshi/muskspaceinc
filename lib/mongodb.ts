@@ -56,23 +56,12 @@ async function seedAdmin() {
             console.log(`✅ Default admin account automatically provisioned: ${adminEmail}`);
         } else {
             console.log(`[seedAdmin] Admin account already exists: ${adminEmail}`);
-            let updated = false;
-
-            if (adminExists.password !== adminPassword) {
-                console.log(`[seedAdmin] Synchronizing admin password to match .env`);
-                adminExists.password = adminPassword;
-                updated = true;
-            }
 
             if (adminExists.role !== 'super_admin' && adminExists.role !== 'manager') {
                 console.log(`[seedAdmin] Upgrading account role to super_admin`);
                 adminExists.role = 'super_admin';
-                updated = true;
-            }
-
-            if (updated) {
                 await adminExists.save();
-                console.log(`✅ Default admin account successfully synchronized.`);
+                console.log(`✅ Admin role updated to super_admin.`);
             }
         }
     } catch (error) {

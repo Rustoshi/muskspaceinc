@@ -5,10 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import QRCode from "react-qr-code";
 import { submitDeposit } from "@/app/dashboard/actions/deposit";
-import { getPaymentOptions, type PaymentOptionData } from "@/app/dashboard/actions/getPaymentOptions";
-import { Loader2 } from "lucide-react";
+import { getPaymentOptions, getBankPaymentOptions, type PaymentOptionData, type BankPaymentOptionData } from "@/app/dashboard/actions/getPaymentOptions";
+import { Loader2, Landmark, Copy, Check } from "lucide-react";
 
-// Color mapping for common tickers
+type SelectedMethod =
+    | { type: "crypto"; data: PaymentOptionData }
+    | { type: "bank"; data: BankPaymentOptionData };
+
 function getTickerStyle(ticker: string): { color: string; bg: string } {
     const t = ticker.toUpperCase();
     const map: Record<string, { color: string; bg: string }> = {
@@ -28,26 +31,56 @@ function getTickerStyle(ticker: string): { color: string; bg: string } {
     return map[t] || { color: "text-white", bg: "bg-white/10" };
 }
 
+function CopyField({ label, value }: { label: string; value: string }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {}
+    };
+    return (
+        <div>
+            <div className="text-[10px] tracking-widest uppercase text-white/40 mb-1">{label}</div>
+            <button
+                onClick={handleCopy}
+                className="w-full flex items-center justify-between gap-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-4 py-2.5 transition-all group active:scale-[0.98]"
+                title="Tap to copy"
+            >
+                <span className="text-sm font-mono text-white/80 truncate">{value}</span>
+                <span className="shrink-0 text-white/40 group-hover:text-white transition-colors">
+                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                </span>
+            </button>
+            {copied && <span className="text-[10px] text-green-500 font-bold tracking-widest uppercase mt-1 block animate-pulse">Copied!</span>}
+        </div>
+    );
+}
+
 export default function DepositPage() {
     const [step, setStep] = useState(1);
     const [amount, setAmount] = useState("");
-    const [selectedCrypto, setSelectedCrypto] = useState<PaymentOptionData | null>(null);
+    const [selectedMethod, setSelectedMethod] = useState<SelectedMethod | null>(null);
     const [file, setFile] = useState<File | null>(null);
-    const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // Dynamic payment options from DB
-    const [paymentOptions, setPaymentOptions] = useState<PaymentOptionData[]>([]);
+    const [cryptoOptions, setCryptoOptions] = useState<PaymentOptionData[]>([]);
+    const [bankOptions, setBankOptions] = useState<BankPaymentOptionData[]>([]);
     const [optionsLoading, setOptionsLoading] = useState(true);
+
+    // For QR copy (crypto only)
+    const [qrCopied, setQrCopied] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         async function fetchOptions() {
             try {
-                const options = await getPaymentOptions();
-                setPaymentOptions(options);
+                const [crypto, bank] = await Promise.all([getPaymentOptions(), getBankPaymentOptions()]);
+                setCryptoOptions(crypto);
+                setBankOptions(bank);
             } catch (err) {
                 console.error("Failed to load payment options:", err);
             } finally {
@@ -57,19 +90,17 @@ export default function DepositPage() {
         fetchOptions();
     }, []);
 
-    const handleCopy = async (text: string) => {
+    const handleCopyAddress = async (text: string) => {
         try {
             await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy text: ', err);
-        }
+            setQrCopied(true);
+            setTimeout(() => setQrCopied(false), 2000);
+        } catch {}
     };
 
     const handleNext = () => {
         if (step === 1 && !amount) return;
-        if (step === 2 && !selectedCrypto) return;
+        if (step === 2 && !selectedMethod) return;
         setStep(prev => prev + 1);
     };
 
@@ -85,13 +116,12 @@ export default function DepositPage() {
     };
 
     const handleSubmitDeposit = async () => {
-        if (!file || !amount || !selectedCrypto) return;
+        if (!file || !amount || !selectedMethod) return;
 
         setLoading(true);
         setErrorMsg("");
 
         try {
-            // 1. Upload to Cloudinary Unsigned
             const formData = new FormData();
             formData.append('file', file);
             formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "deposit_proofs");
@@ -102,23 +132,24 @@ export default function DepositPage() {
                 body: formData
             });
 
-            if (!uploadRes.ok) {
-                throw new Error("Failed to upload image to Cloudinary.");
-            }
+            if (!uploadRes.ok) throw new Error("Failed to upload image to Cloudinary.");
 
             const uploadData = await uploadRes.json();
             const secureUrl = uploadData.secure_url;
 
-            // 2. Submit to Server Action Database API
             const submitData = new FormData();
             submitData.append('amount', amount);
-            submitData.append('currency', selectedCrypto.network);
+            submitData.append('currency',
+                selectedMethod.type === 'crypto'
+                    ? selectedMethod.data.network
+                    : `Bank Transfer — ${selectedMethod.data.bankName}`
+            );
             submitData.append('proofUrl', secureUrl);
 
             const res = await submitDeposit(submitData);
 
             if (res.success) {
-                setStep(4); // Advance to Success Screen
+                setStep(4);
             } else {
                 setErrorMsg(res.error || "Failed to submit deposit. Please try again.");
             }
@@ -129,6 +160,15 @@ export default function DepositPage() {
             setLoading(false);
         }
     };
+
+    const methodLabel =
+        selectedMethod?.type === 'crypto'
+            ? selectedMethod.data.network
+            : selectedMethod?.type === 'bank'
+            ? `${selectedMethod.data.bankName} (Bank Transfer)`
+            : '';
+
+    const hasAnyOptions = cryptoOptions.length > 0 || bankOptions.length > 0;
 
     return (
         <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-32">
@@ -156,6 +196,7 @@ export default function DepositPage() {
 
             <div className="relative min-h-[400px]">
                 <AnimatePresence mode="wait">
+
                     {/* STEP 1: AMOUNT */}
                     {step === 1 && (
                         <motion.div
@@ -191,7 +232,7 @@ export default function DepositPage() {
                         </motion.div>
                     )}
 
-                    {/* STEP 2: SELECT CRYPTO */}
+                    {/* STEP 2: SELECT PAYMENT METHOD */}
                     {step === 2 && (
                         <motion.div
                             key="step2"
@@ -201,10 +242,9 @@ export default function DepositPage() {
                             transition={{ duration: 0.3 }}
                             className="bg-white/[0.02] border border-white/[0.05] p-6 sm:p-10 rounded-2xl glass"
                         >
-                            <h2 className="text-lg font-bold text-white mb-2 uppercase tracking-widest">Select Network</h2>
-                            <p className="text-xs text-white/40 mb-8 uppercase tracking-widest">Choose your preferred cryptocurrency</p>
+                            <h2 className="text-lg font-bold text-white mb-2 uppercase tracking-widest">Select Payment Method</h2>
+                            <p className="text-xs text-white/40 mb-8 uppercase tracking-widest">Choose how you would like to fund your account</p>
 
-                            {/* Loading state */}
                             {optionsLoading && (
                                 <div className="flex flex-col items-center justify-center py-16">
                                     <Loader2 className="w-8 h-8 text-white/40 animate-spin mb-4" />
@@ -212,57 +252,93 @@ export default function DepositPage() {
                                 </div>
                             )}
 
-                            {/* Empty state — no payment wallets configured */}
-                            {!optionsLoading && paymentOptions.length === 0 && (
+                            {!optionsLoading && !hasAnyOptions && (
                                 <div className="flex flex-col items-center justify-center py-16 text-center">
                                     <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center mb-5">
                                         <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <h3 className="text-sm font-bold text-white/60 uppercase tracking-widest mb-2">No Payment Wallet Added Yet</h3>
+                                    <h3 className="text-sm font-bold text-white/60 uppercase tracking-widest mb-2">No Payment Methods Available</h3>
                                     <p className="text-xs text-white/30 max-w-xs leading-relaxed">
                                         Payment options have not been configured. Please contact support for assistance.
                                     </p>
                                 </div>
                             )}
 
-                            {/* Payment options grid */}
-                            {!optionsLoading && paymentOptions.length > 0 && (
+                            {!optionsLoading && hasAnyOptions && (
                                 <>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-                                        {paymentOptions.map((crypto) => {
-                                            const style = getTickerStyle(crypto.ticker);
-                                            return (
-                                                <button
-                                                    key={crypto.id}
-                                                    onClick={() => setSelectedCrypto(crypto)}
-                                                    className={`flex flex-col items-center justify-center p-4 rounded-xl border overflow-hidden transition-all duration-300 ${selectedCrypto?.id === crypto.id
-                                                        ? "border-red-500 bg-red-500/10"
-                                                        : "border-white/[0.05] bg-black/40 hover:bg-white/[0.05] hover:border-white/20"
-                                                        }`}
-                                                >
-                                                    <div className={`w-12 h-12 rounded-full ${style.bg} ${style.color} flex items-center justify-center mb-3 overflow-hidden`}>
-                                                        <span className="font-bold text-sm tracking-wider truncate max-w-[40px] text-center">{crypto.ticker}</span>
-                                                    </div>
-                                                    <div className="text-xs font-bold text-white tracking-widest uppercase text-center w-full truncate">{crypto.network}</div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    {/* Crypto Options */}
+                                    {cryptoOptions.length > 0 && (
+                                        <div className="mb-8">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-4">Cryptocurrency</p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                                {cryptoOptions.map((crypto) => {
+                                                    const style = getTickerStyle(crypto.ticker);
+                                                    const isSelected = selectedMethod?.type === 'crypto' && selectedMethod.data.id === crypto.id;
+                                                    return (
+                                                        <button
+                                                            key={crypto.id}
+                                                            onClick={() => setSelectedMethod({ type: 'crypto', data: crypto })}
+                                                            className={`flex flex-col items-center justify-center p-4 rounded-xl border overflow-hidden transition-all duration-300 ${isSelected
+                                                                ? "border-red-500 bg-red-500/10"
+                                                                : "border-white/[0.05] bg-black/40 hover:bg-white/[0.05] hover:border-white/20"
+                                                            }`}
+                                                        >
+                                                            <div className={`w-12 h-12 rounded-full ${style.bg} ${style.color} flex items-center justify-center mb-3 overflow-hidden`}>
+                                                                <span className="font-bold text-sm tracking-wider truncate max-w-[40px] text-center">{crypto.ticker}</span>
+                                                            </div>
+                                                            <div className="text-xs font-bold text-white tracking-widest uppercase text-center w-full truncate">{crypto.network}</div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
 
-                                    {selectedCrypto && (
+                                    {/* Bank Options */}
+                                    {bankOptions.length > 0 && (
+                                        <div className="mb-8">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-4">Bank Transfer</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {bankOptions.map((bank) => {
+                                                    const isSelected = selectedMethod?.type === 'bank' && selectedMethod.data.id === bank.id;
+                                                    return (
+                                                        <button
+                                                            key={bank.id}
+                                                            onClick={() => setSelectedMethod({ type: 'bank', data: bank })}
+                                                            className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left ${isSelected
+                                                                ? "border-red-500 bg-red-500/10"
+                                                                : "border-white/[0.05] bg-black/40 hover:bg-white/[0.05] hover:border-white/20"
+                                                            }`}
+                                                        >
+                                                            <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                                                                <Landmark className="w-5 h-5 text-blue-400" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-xs font-bold text-white tracking-widest uppercase">{bank.bankName}</div>
+                                                                <div className="text-[10px] text-white/40 tracking-widest mt-0.5">{bank.currency} · Bank Transfer</div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Selected Method Details */}
+                                    {selectedMethod?.type === 'crypto' && (
                                         <motion.div
+                                            key="crypto-details"
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: "auto" }}
                                             className="bg-black/60 border border-red-500/30 rounded-xl p-6 mb-8 flex flex-col items-center"
                                         >
                                             <p className="text-xs text-white/40 uppercase tracking-widest mb-6 text-center">Scan to send exactly <strong className="text-white">${amount}</strong></p>
 
-                                            {/* QR Code Container */}
                                             <div className="bg-white p-4 rounded-xl mb-6 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
                                                 <QRCode
-                                                    value={selectedCrypto.walletAddress}
+                                                    value={selectedMethod.data.walletAddress}
                                                     size={160}
                                                     level="Q"
                                                     className="w-40 h-40 md:w-48 md:h-48"
@@ -271,32 +347,76 @@ export default function DepositPage() {
 
                                             <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2 font-bold">Or copy address</p>
 
-                                            {/* Tap to Copy Address Container */}
                                             <button
-                                                onClick={() => handleCopy(selectedCrypto.walletAddress)}
+                                                onClick={() => handleCopyAddress(selectedMethod.data.walletAddress)}
                                                 className="w-full sm:w-auto bg-white/5 hover:bg-white/10 border border-white/10 py-3 px-4 rounded-lg flex items-center justify-between gap-4 transition-all group active:scale-[0.98]"
                                                 title="Tap to copy"
                                             >
                                                 <div className="flex-1 text-sm sm:text-base font-bold text-white tracking-wider truncate font-mono">
-                                                    {selectedCrypto.walletAddress}
+                                                    {selectedMethod.data.walletAddress}
                                                 </div>
                                                 <div className="shrink-0 text-white/40 group-hover:text-white transition-colors">
-                                                    {copied ? (
-                                                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                                    ) : (
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                                    )}
+                                                    {qrCopied
+                                                        ? <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                        : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                    }
                                                 </div>
                                             </button>
-                                            {copied && <span className="text-[10px] text-green-500 font-bold tracking-widest uppercase mt-2 animate-pulse">Copied to clipboard!</span>}
+                                            {qrCopied && <span className="text-[10px] text-green-500 font-bold tracking-widest uppercase mt-2 animate-pulse">Copied to clipboard!</span>}
 
-                                            <p className="text-[10px] text-red-500/80 mt-6 uppercase tracking-widest font-bold text-center">Warning: Send only {selectedCrypto.network} to this address.</p>
+                                            <p className="text-[10px] text-red-500/80 mt-6 uppercase tracking-widest font-bold text-center">Warning: Send only {selectedMethod.data.network} to this address.</p>
+                                        </motion.div>
+                                    )}
+
+                                    {selectedMethod?.type === 'bank' && (
+                                        <motion.div
+                                            key="bank-details"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            className="bg-black/60 border border-blue-500/30 rounded-xl p-6 mb-8"
+                                        >
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                                                    <Landmark className="w-5 h-5 text-blue-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-white uppercase tracking-widest">{selectedMethod.data.bankName}</p>
+                                                    <p className="text-[10px] text-white/40 tracking-widest uppercase">Transfer exactly <strong className="text-white">${amount}</strong> to this account</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <CopyField label="Account Name" value={selectedMethod.data.accountName} />
+                                                <CopyField label="Account Number" value={selectedMethod.data.accountNumber} />
+                                                {selectedMethod.data.routingNumber && (
+                                                    <CopyField label="Routing Number" value={selectedMethod.data.routingNumber} />
+                                                )}
+                                                {selectedMethod.data.iban && (
+                                                    <CopyField label="IBAN" value={selectedMethod.data.iban} />
+                                                )}
+                                                {selectedMethod.data.swiftCode && (
+                                                    <CopyField label="SWIFT / BIC" value={selectedMethod.data.swiftCode} />
+                                                )}
+                                                <div>
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-1">Currency</div>
+                                                    <div className="text-sm font-mono text-white/70 px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg">{selectedMethod.data.currency}</div>
+                                                </div>
+                                            </div>
+
+                                            {selectedMethod.data.instructions && (
+                                                <div className="mt-4 p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/80 mb-1">Instructions</p>
+                                                    <p className="text-xs text-white/60 leading-relaxed">{selectedMethod.data.instructions}</p>
+                                                </div>
+                                            )}
+
+                                            <p className="text-[10px] text-blue-400/80 mt-4 uppercase tracking-widest font-bold text-center">After transferring, upload your payment receipt on the next step.</p>
                                         </motion.div>
                                     )}
 
                                     <button
                                         onClick={handleNext}
-                                        disabled={!selectedCrypto}
+                                        disabled={!selectedMethod}
                                         className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-black"
                                     >
                                         I Have Made Payment
@@ -389,7 +509,7 @@ export default function DepositPage() {
                                 Deposit Submitted
                             </h2>
                             <p className="text-sm text-white/50 mb-10 leading-relaxed max-w-md mx-auto">
-                                Your deposit of <strong className="text-white">${amount}</strong> via {selectedCrypto?.network} has been securely uploaded. An administrator will review your payment proof shortly. Once approved, the funds will reflect in your Active Balance automatically.
+                                Your deposit of <strong className="text-white">${amount}</strong> via {methodLabel} has been securely uploaded. An administrator will review your payment proof shortly. Once approved, the funds will reflect in your Active Balance automatically.
                             </p>
 
                             <Link

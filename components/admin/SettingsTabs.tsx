@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Wallet, TrendingUp, Plus, Edit, Trash2, Check, X, Loader2, Save, Shield } from "lucide-react";
-import { updateCompanyDetails, addPaymentOption, deletePaymentOption, addInvestmentPlan, updateInvestmentPlan, deleteInvestmentPlan, updateAdminPassword } from "@/app/admin/actions/settings";
+import { Building2, Wallet, TrendingUp, Plus, Edit, Trash2, Check, X, Loader2, Save, Shield, Landmark } from "lucide-react";
+import { updateCompanyDetails, addPaymentOption, deletePaymentOption, addBankPaymentOption, deleteBankPaymentOption, addInvestmentPlan, updateInvestmentPlan, deleteInvestmentPlan, updateAdminPassword } from "@/app/admin/actions/settings";
 import { useRouter } from "next/navigation";
 
-export default function SettingsTabs({ companyDetails, paymentOptions, investmentPlans }: { companyDetails: any, paymentOptions: any[], investmentPlans: any[] }) {
+export default function SettingsTabs({ companyDetails, paymentOptions, bankPaymentOptions, investmentPlans }: { companyDetails: any, paymentOptions: any[], bankPaymentOptions: any[], investmentPlans: any[] }) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'general' | 'payment' | 'plans' | 'security'>('general');
 
@@ -15,6 +15,7 @@ export default function SettingsTabs({ companyDetails, paymentOptions, investmen
     const [securityError, setSecurityError] = useState<string | null>(null);
     const [securitySuccess, setSecuritySuccess] = useState(false);
     const [showAddPayment, setShowAddPayment] = useState(false);
+    const [showAddBankPayment, setShowAddBankPayment] = useState(false);
     const [showAddPlan, setShowAddPlan] = useState(false);
     const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
     const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -43,6 +44,24 @@ export default function SettingsTabs({ companyDetails, paymentOptions, investmen
         if (!confirm("Are you sure you want to delete this payment option?")) return;
         setLoadingId(id);
         await deletePaymentOption(id);
+        setLoadingId(null);
+        router.refresh();
+    };
+
+    const handleAddBankPayment = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setLoadingId('new-bank-payment');
+        const formData = new FormData(e.currentTarget);
+        await addBankPaymentOption(formData);
+        setShowAddBankPayment(false);
+        setLoadingId(null);
+        router.refresh();
+    };
+
+    const handleDeleteBankPayment = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this bank payment option?")) return;
+        setLoadingId(id);
+        await deleteBankPaymentOption(id);
         setLoadingId(null);
         router.refresh();
     };
@@ -182,7 +201,7 @@ export default function SettingsTabs({ companyDetails, paymentOptions, investmen
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {paymentOptions.length === 0 ? (
-                                <div className="col-span-full p-8 text-center border border-white/[0.05] border-dashed rounded-xl text-white/40 text-sm">No payment options configured.</div>
+                                <div className="col-span-full p-8 text-center border border-white/[0.05] border-dashed rounded-xl text-white/40 text-sm">No crypto gateways configured.</div>
                             ) : paymentOptions.map(option => (
                                 <div key={option._id} className="bg-white/[0.02] border border-white/[0.08] hover:border-white/[0.15] rounded-xl p-5 transition-all group relative overflow-hidden">
                                     <div className={`absolute top-0 right-0 w-16 h-16 -mr-8 -mt-8 rotate-45 ${option.isActive ? 'bg-green-500/20' : 'bg-white/10'}`}></div>
@@ -203,6 +222,118 @@ export default function SettingsTabs({ companyDetails, paymentOptions, investmen
                                     </div>
                                 </div>
                             ))}
+                        </div>
+
+                        {/* BANK PAYMENT METHODS */}
+                        <div className="mt-10 pt-8 border-t border-white/[0.06]">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                <div className="flex items-center gap-3">
+                                    <Landmark className="w-4 h-4 text-white/40" />
+                                    <h3 className="text-sm font-bold tracking-widest text-white uppercase font-montserrat">Bank Transfer Accounts</h3>
+                                </div>
+                                <button onClick={() => setShowAddBankPayment(!showAddBankPayment)} className="flex items-center gap-2 bg-white/[0.06] hover:bg-white/[0.10] border border-white/[0.1] text-white px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors shrink-0">
+                                    {showAddBankPayment ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                    {showAddBankPayment ? 'Cancel' : 'Add Bank Account'}
+                                </button>
+                            </div>
+
+                            {showAddBankPayment && (
+                                <form onSubmit={handleAddBankPayment} className="bg-white/[0.02] border border-white/[0.15] rounded-xl p-6 mb-6 animate-in fade-in slide-in-from-top-4">
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-4">New Bank Account</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Bank Name <span className="text-red-500">*</span></label>
+                                            <input name="bankName" type="text" required placeholder="e.g. Chase Bank" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Account Name <span className="text-red-500">*</span></label>
+                                            <input name="accountName" type="text" required placeholder="e.g. MuskSpace Inc." className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Account Number <span className="text-red-500">*</span></label>
+                                            <input name="accountNumber" type="text" required placeholder="e.g. 1234567890" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Currency</label>
+                                            <input name="currency" type="text" defaultValue="USD" placeholder="e.g. USD" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Routing Number</label>
+                                            <input name="routingNumber" type="text" placeholder="e.g. 021000021 (optional)" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">SWIFT / BIC Code</label>
+                                            <input name="swiftCode" type="text" placeholder="e.g. CHASUS33 (optional)" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">IBAN</label>
+                                            <input name="iban" type="text" placeholder="e.g. GB29 NWBK 6016 1331 9268 19 (optional)" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Special Instructions</label>
+                                            <textarea name="instructions" rows={2} placeholder="e.g. Include your username as payment reference (optional)" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors resize-none" />
+                                        </div>
+                                    </div>
+                                    <button disabled={loadingId === 'new-bank-payment'} type="submit" className="bg-white hover:bg-white/90 text-black px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors flex items-center gap-2">
+                                        {loadingId === 'new-bank-payment' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Bank Account'}
+                                    </button>
+                                </form>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {bankPaymentOptions.length === 0 ? (
+                                    <div className="col-span-full p-8 text-center border border-white/[0.05] border-dashed rounded-xl text-white/40 text-sm">No bank accounts configured.</div>
+                                ) : bankPaymentOptions.map((bank: any) => (
+                                    <div key={bank._id} className="bg-white/[0.02] border border-white/[0.08] hover:border-white/[0.15] rounded-xl p-5 transition-all group relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-16 h-16 -mr-8 -mt-8 rotate-45 bg-blue-500/10"></div>
+                                        <div className="flex justify-between items-start mb-4 relative z-10">
+                                            <div>
+                                                <h4 className="font-bold text-white tracking-widest uppercase">{bank.bankName}</h4>
+                                                <span className="text-[10px] text-white/40 tracking-widest uppercase">{bank.currency} · Bank Transfer</span>
+                                            </div>
+                                            <div className="flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                <button disabled={loadingId === bank._id} onClick={() => handleDeleteBankPayment(bank._id)} className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors text-red-400">
+                                                    {loadingId === bank._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="bg-black/30 p-3 rounded-lg relative z-10 space-y-2">
+                                            <div>
+                                                <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Account Name</div>
+                                                <div className="text-xs font-mono text-white/70">{bank.accountName}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Account Number</div>
+                                                <div className="text-xs font-mono text-white/70">{bank.accountNumber}</div>
+                                            </div>
+                                            {bank.routingNumber && (
+                                                <div>
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Routing</div>
+                                                    <div className="text-xs font-mono text-white/70">{bank.routingNumber}</div>
+                                                </div>
+                                            )}
+                                            {bank.iban && (
+                                                <div>
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">IBAN</div>
+                                                    <div className="text-xs font-mono text-white/70 break-all">{bank.iban}</div>
+                                                </div>
+                                            )}
+                                            {bank.swiftCode && (
+                                                <div>
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">SWIFT</div>
+                                                    <div className="text-xs font-mono text-white/70">{bank.swiftCode}</div>
+                                                </div>
+                                            )}
+                                            {bank.instructions && (
+                                                <div className="pt-2 border-t border-white/[0.05]">
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Instructions</div>
+                                                    <div className="text-xs text-white/50 italic">{bank.instructions}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 )}
