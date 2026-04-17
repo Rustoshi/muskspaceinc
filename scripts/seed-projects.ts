@@ -295,7 +295,16 @@ async function seed() {
             continue;
         }
 
-        await ProjectInvestment.create(data);
+        await ProjectInvestment.create({
+            ...(data as any),
+            expectedYieldHigh: data.expectedYieldHigh ?? undefined,
+            yieldCycle: (data as any).yieldCycle ?? undefined,
+            tranches: data.tranches.map((t: any) => ({
+                ...t,
+                maximumAmount: t.maximumAmount ?? undefined,
+                yieldHigh: t.yieldHigh ?? undefined,
+            })),
+        } as any);
         console.log(`[created] "${data.name}" — ${data.slug}`);
         created++;
     }

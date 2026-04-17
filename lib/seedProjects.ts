@@ -245,7 +245,15 @@ export async function seedProjects(): Promise<void> {
         for (const project of SEED_PROJECTS) {
             const exists = await ProjectInvestment.exists({ slug: project.slug });
             if (!exists) {
-                await ProjectInvestment.create(project);
+                await ProjectInvestment.create({
+                    ...project,
+                    expectedYieldHigh: project.expectedYieldHigh ?? undefined,
+                    tranches: project.tranches.map(t => ({
+                        ...t,
+                        maximumAmount: t.maximumAmount ?? undefined,
+                        yieldHigh: t.yieldHigh ?? undefined,
+                    })),
+                });
             }
         }
     } catch (err) {

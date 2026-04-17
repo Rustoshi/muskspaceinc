@@ -85,6 +85,7 @@ export async function createProject(data: ProjectPayload) {
 
         await ProjectInvestment.create({
             ...data,
+            expectedYieldHigh: data.expectedYieldHigh ?? undefined,
             launchDate: new Date(data.launchDate),
             closeDate: new Date(data.closeDate),
             milestones: data.milestones.map(m => ({
@@ -93,7 +94,9 @@ export async function createProject(data: ProjectPayload) {
             })),
             tranches: data.tranches.map(t => ({
                 ...t,
-                spotsFilled: 0, // Always start at zero
+                maximumAmount: t.maximumAmount ?? undefined,
+                yieldHigh: t.yieldHigh ?? undefined,
+                spotsFilled: 0,
             })),
             currentRaised: 0,
             investorCount: 0,
@@ -153,11 +156,14 @@ export async function updateProject(projectId: string, data: ProjectPayload) {
 
         const mergedTranches = data.tranches.map(t => ({
             ...t,
+            maximumAmount: t.maximumAmount ?? undefined,
+            yieldHigh: t.yieldHigh ?? undefined,
             spotsFilled: existingTrancheMap.get(t.name) ?? 0,
         }));
 
         await ProjectInvestment.findByIdAndUpdate(projectId, {
             ...data,
+            expectedYieldHigh: data.expectedYieldHigh ?? undefined,
             currentRaised: Number(data.currentRaised),
             investorCount: Number(data.investorCount),
             launchDate: new Date(data.launchDate),

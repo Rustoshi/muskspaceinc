@@ -7,7 +7,7 @@ import ProjectDetailClient from "@/components/projects/ProjectDetailClient";
 export const dynamic = "force-dynamic";
 
 interface Props {
-    params: { slug: string };
+    params: Promise<{ slug: string }>;
 }
 
 async function getProject(slug: string) {
@@ -63,8 +63,9 @@ async function getProject(slug: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+    const { slug } = await params;
     await dbConnect();
-    const raw = await ProjectInvestment.findOne({ slug: params.slug, isActive: true }).lean() as any;
+    const raw = await ProjectInvestment.findOne({ slug, isActive: true }).lean() as any;
     if (!raw) return { title: "Project Not Found" };
 
     return {
@@ -79,7 +80,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProjectDetailPage({ params }: Props) {
-    const project = await getProject(params.slug);
+    const { slug } = await params;
+    const project = await getProject(slug);
     if (!project) notFound();
 
     return <ProjectDetailClient project={project} />;

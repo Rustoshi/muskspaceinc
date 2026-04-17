@@ -12,7 +12,7 @@ import ProjectMilestones from "@/components/projects/ProjectMilestones";
 export const dynamic = "force-dynamic";
 
 interface Props {
-    params: { slug: string };
+    params: Promise<{ slug: string }>;
 }
 
 function formatCurrency(n: number): string {
@@ -25,6 +25,8 @@ function formatDate(dateVal: any): string {
 }
 
 export default async function DashboardProjectStakePage({ params }: Props) {
+    const { slug } = await params;
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) redirect("/invest/login");
 
@@ -34,7 +36,7 @@ export default async function DashboardProjectStakePage({ params }: Props) {
     if (!user) redirect("/invest/login");
 
     // Find the project by slug
-    const project = await ProjectInvestment.findOne({ slug: params.slug, isActive: true }).lean() as any;
+    const project = await ProjectInvestment.findOne({ slug, isActive: true }).lean() as any;
     if (!project) notFound();
 
     // Find user's stake in this project
