@@ -34,7 +34,7 @@ interface DocumentInput {
 
 interface ProjectPayload {
     name: string;
-    company: 'SpaceX' | 'BoringCompany' | 'Tesla' | 'Neuralink' | 'xAI';
+    company: 'SpaceX' | 'BoringCompany' | 'Tesla' | 'Neuralink' | 'xAI' | 'DOGE';
     slug: string;
     tagline: string;
     heroImage: string;
@@ -45,6 +45,8 @@ interface ProjectPayload {
     isActive: boolean;
     isFeatured: boolean;
     totalRaiseTarget: number;
+    currentRaised: number;
+    investorCount: number;
     launchDate: string;
     closeDate: string;
     expectedYieldLow: number;
@@ -156,6 +158,8 @@ export async function updateProject(projectId: string, data: ProjectPayload) {
 
         await ProjectInvestment.findByIdAndUpdate(projectId, {
             ...data,
+            currentRaised: Number(data.currentRaised),
+            investorCount: Number(data.investorCount),
             launchDate: new Date(data.launchDate),
             closeDate: new Date(data.closeDate),
             milestones: data.milestones.map(m => ({

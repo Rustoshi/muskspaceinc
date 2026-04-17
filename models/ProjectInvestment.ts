@@ -181,8 +181,11 @@ ProjectInvestmentSchema.index({ company: 1 });
 
 // ─── Model Export ─────────────────────────────────────────────────────────────
 
+// Always delete the cached model so schema changes (e.g. new enum values) take
+// effect without requiring a full process restart during development.
+delete (mongoose.models as any).ProjectInvestment;
+
 const ProjectInvestment =
-    mongoose.models.ProjectInvestment ||
     mongoose.model<IProjectInvestment>('ProjectInvestment', ProjectInvestmentSchema);
 
 export default ProjectInvestment;

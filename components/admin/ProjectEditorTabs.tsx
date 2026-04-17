@@ -83,6 +83,8 @@ export default function ProjectEditorTabs({ mode, projectId, initialData, stakes
 
     // ── Financial Fields ──
     const [totalRaiseTarget, setTotalRaiseTarget] = useState(initialData?.totalRaiseTarget ?? 0);
+    const [currentRaised, setCurrentRaised]       = useState(initialData?.currentRaised ?? 0);
+    const [investorCount, setInvestorCount]       = useState(initialData?.investorCount ?? 0);
     const [launchDate, setLaunchDate]             = useState(initialData?.launchDate ? initialData.launchDate.slice(0, 10) : "");
     const [closeDate, setCloseDate]               = useState(initialData?.closeDate ? initialData.closeDate.slice(0, 10) : "");
     const [expectedYieldLow, setExpectedYieldLow] = useState(initialData?.expectedYieldLow ?? 0);
@@ -134,6 +136,8 @@ export default function ProjectEditorTabs({ mode, projectId, initialData, stakes
             highlights: highlights.filter(h => h.trim()),
             status: status as any, isActive, isFeatured,
             totalRaiseTarget: Number(totalRaiseTarget),
+            currentRaised: Number(currentRaised),
+            investorCount: Number(investorCount),
             launchDate, closeDate,
             expectedYieldLow: Number(expectedYieldLow),
             expectedYieldHigh: expectedYieldHigh !== "" ? Number(expectedYieldHigh) : null,
@@ -348,6 +352,18 @@ export default function ProjectEditorTabs({ mode, projectId, initialData, stakes
                         <div>
                             <label className={labelClass}>Total Raise Target ($)</label>
                             <input type="number" className={inputClass} value={totalRaiseTarget} onChange={e => setTotalRaiseTarget(e.target.value)} placeholder="500000000" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelClass}>Amount Raised So Far ($)</label>
+                                <input type="number" className={inputClass} value={currentRaised} onChange={e => setCurrentRaised(e.target.value)} placeholder="0" min="0" />
+                                <p className="text-[10px] text-white/25 mt-1">Displayed on funding progress bar</p>
+                            </div>
+                            <div>
+                                <label className={labelClass}>Number of Investors</label>
+                                <input type="number" className={inputClass} value={investorCount} onChange={e => setInvestorCount(e.target.value)} placeholder="0" min="0" />
+                                <p className="text-[10px] text-white/25 mt-1">Displayed on project card</p>
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
