@@ -32,8 +32,8 @@ async function getFeaturedProjects(): Promise<FeaturedProject[]> {
         isFeatured: true,
         status:     { $in: ["open", "upcoming"] },
     })
-        .sort({ status: 1, createdAt: -1 })
-        .limit(3)
+        .sort({ createdAt: -1 })
+        .limit(4)
         .lean() as any[];
 
     return raw.map(p => ({
@@ -99,7 +99,7 @@ export default async function ProjectsFeatured() {
                 </div>
 
                 {/* Cards grid */}
-                <div className={`grid grid-cols-1 gap-6 ${projects.length === 1 ? "sm:grid-cols-1 max-w-md" : projects.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+                <div className={`grid grid-cols-1 gap-6 ${projects.length === 1 ? "sm:grid-cols-1 max-w-md" : projects.length === 2 ? "sm:grid-cols-2" : projects.length === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
                     {projects.map((p, i) => (
                         <FeaturedProjectCard key={p._id} p={p} index={i} />
                     ))}

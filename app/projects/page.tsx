@@ -16,7 +16,7 @@ async function getProjects() {
     await dbConnect();
 
     const raw = await ProjectInvestment.find({ isActive: true })
-        .sort({ isFeatured: -1, status: 1, createdAt: -1 })
+        .sort({ isFeatured: -1, createdAt: -1 })
         .lean();
 
     return raw.map((p: any) => ({
