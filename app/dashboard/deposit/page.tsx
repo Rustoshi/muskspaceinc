@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import QRCode from "react-qr-code";
 import { submitDeposit } from "@/app/dashboard/actions/deposit";
-import { getPaymentOptions, getBankPaymentOptions, type PaymentOptionData, type BankPaymentOptionData } from "@/app/dashboard/actions/getPaymentOptions";
-import { Loader2, Landmark, Copy, Check } from "lucide-react";
+import { getPaymentOptions, getBankPaymentOptions, getPayPalPaymentOptions, type PaymentOptionData, type BankPaymentOptionData, type PayPalPaymentOptionData } from "@/app/dashboard/actions/getPaymentOptions";
+import { Loader2, Landmark, Copy, Check, AtSign } from "lucide-react";
 
 type SelectedMethod =
     | { type: "crypto"; data: PaymentOptionData }
-    | { type: "bank"; data: BankPaymentOptionData };
+    | { type: "bank"; data: BankPaymentOptionData }
+    | { type: "paypal"; data: PayPalPaymentOptionData };
 
 function getTickerStyle(ticker: string): { color: string; bg: string } {
     const t = ticker.toUpperCase();
@@ -68,6 +69,7 @@ export default function DepositPage() {
 
     const [cryptoOptions, setCryptoOptions] = useState<PaymentOptionData[]>([]);
     const [bankOptions, setBankOptions] = useState<BankPaymentOptionData[]>([]);
+    const [paypalOptions, setPaypalOptions] = useState<PayPalPaymentOptionData[]>([]);
     const [optionsLoading, setOptionsLoading] = useState(true);
 
     // For QR copy (crypto only)
@@ -78,9 +80,10 @@ export default function DepositPage() {
     useEffect(() => {
         async function fetchOptions() {
             try {
-                const [crypto, bank] = await Promise.all([getPaymentOptions(), getBankPaymentOptions()]);
+                const [crypto, bank, paypal] = await Promise.all([getPaymentOptions(), getBankPaymentOptions(), getPayPalPaymentOptions()]);
                 setCryptoOptions(crypto);
                 setBankOptions(bank);
+                setPaypalOptions(paypal);
             } catch (err) {
                 console.error("Failed to load payment options:", err);
             } finally {
@@ -142,6 +145,8 @@ export default function DepositPage() {
             submitData.append('currency',
                 selectedMethod.type === 'crypto'
                     ? selectedMethod.data.network
+                    : selectedMethod.type === 'paypal'
+                    ? `PayPal — ${selectedMethod.data.email}`
                     : `Bank Transfer — ${selectedMethod.data.bankName}`
             );
             submitData.append('proofUrl', secureUrl);
@@ -166,9 +171,11 @@ export default function DepositPage() {
             ? selectedMethod.data.network
             : selectedMethod?.type === 'bank'
             ? `${selectedMethod.data.bankName} (Bank Transfer)`
+            : selectedMethod?.type === 'paypal'
+            ? `PayPal (${selectedMethod.data.email})`
             : '';
 
-    const hasAnyOptions = cryptoOptions.length > 0 || bankOptions.length > 0;
+    const hasAnyOptions = cryptoOptions.length > 0 || bankOptions.length > 0 || paypalOptions.length > 0;
 
     return (
         <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-32">
@@ -326,6 +333,36 @@ export default function DepositPage() {
                                         </div>
                                     )}
 
+                                    {/* PayPal Options */}
+                                    {paypalOptions.length > 0 && (
+                                        <div className="mb-8">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-4">PayPal</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {paypalOptions.map((pp) => {
+                                                    const isSelected = selectedMethod?.type === 'paypal' && selectedMethod.data.id === pp.id;
+                                                    return (
+                                                        <button
+                                                            key={pp.id}
+                                                            onClick={() => setSelectedMethod({ type: 'paypal', data: pp })}
+                                                            className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left ${isSelected
+                                                                ? "border-red-500 bg-red-500/10"
+                                                                : "border-white/[0.05] bg-black/40 hover:bg-white/[0.05] hover:border-white/20"
+                                                            }`}
+                                                        >
+                                                            <div className="w-12 h-12 rounded-full bg-[#0070ba]/15 flex items-center justify-center shrink-0">
+                                                                <AtSign className="w-5 h-5 text-[#0070ba]" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-xs font-bold text-white tracking-widest uppercase truncate">{pp.accountName}</div>
+                                                                <div className="text-[10px] text-white/40 tracking-widest mt-0.5 truncate">{pp.email}</div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Selected Method Details */}
                                     {selectedMethod?.type === 'crypto' && (
                                         <motion.div
@@ -411,6 +448,41 @@ export default function DepositPage() {
                                             )}
 
                                             <p className="text-[10px] text-blue-400/80 mt-4 uppercase tracking-widest font-bold text-center">After transferring, upload your payment receipt on the next step.</p>
+                                        </motion.div>
+                                    )}
+
+                                    {selectedMethod?.type === 'paypal' && (
+                                        <motion.div
+                                            key="paypal-details"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            className="bg-black/60 border border-[#0070ba]/40 rounded-xl p-6 mb-8"
+                                        >
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 rounded-full bg-[#0070ba]/15 flex items-center justify-center">
+                                                    <AtSign className="w-5 h-5 text-[#0070ba]" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-white uppercase tracking-widest">{selectedMethod.data.accountName}</p>
+                                                    <p className="text-[10px] text-white/40 tracking-widest uppercase">Send exactly <strong className="text-white">${amount}</strong> via PayPal</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <CopyField label="PayPal Email" value={selectedMethod.data.email} />
+                                                {selectedMethod.data.paypalLink && (
+                                                    <CopyField label="PayPal.Me Link" value={selectedMethod.data.paypalLink} />
+                                                )}
+                                            </div>
+
+                                            {selectedMethod.data.instructions && (
+                                                <div className="mt-4 p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/80 mb-1">Instructions</p>
+                                                    <p className="text-xs text-white/60 leading-relaxed">{selectedMethod.data.instructions}</p>
+                                                </div>
+                                            )}
+
+                                            <p className="text-[10px] text-[#0070ba] mt-4 uppercase tracking-widest font-bold text-center">After sending, upload your payment receipt on the next step.</p>
                                         </motion.div>
                                     )}
 

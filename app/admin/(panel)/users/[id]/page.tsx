@@ -5,6 +5,7 @@ import User from "@/models/User";
 import UserPlan from "@/models/UserPlan";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import ProjectStake from "@/models/ProjectStake";
+import ProjectInvestment from "@/models/ProjectInvestment";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -33,7 +34,7 @@ export default async function UserDetailsPage(props: any) {
 
     // Fetch user's active project stakes
     const projectStakes = await ProjectStake.find({ userId: user._id, status: 'active' })
-        .populate('projectId', 'name company heroBgColor')
+        .populate({ path: 'projectId', select: 'name company heroBgColor', model: ProjectInvestment })
         .sort({ investedAt: -1 })
         .lean() as any[];
 

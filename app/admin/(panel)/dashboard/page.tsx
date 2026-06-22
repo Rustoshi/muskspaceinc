@@ -43,10 +43,13 @@ export default async function AdminDashboard() {
     }));
 
     const rawTransactions = await Transaction.find({ status: 'pending' }).sort({ createdAt: -1 }).limit(50).lean();
-    const serializedTransactions = rawTransactions.map(t => ({
+    const serializedTransactions = rawTransactions.map((t: any) => ({
         ...t,
         _id: t._id?.toString(),
-        createdAt: t.createdAt?.toISOString()
+        userId: t.userId?.toString(),
+        date: t.date instanceof Date ? t.date.toISOString() : t.date,
+        createdAt: t.createdAt?.toISOString(),
+        updatedAt: t.updatedAt?.toISOString(),
     }));
 
     const rawInventory = await ShopProduct.find().sort({ createdAt: -1 }).limit(10).lean();

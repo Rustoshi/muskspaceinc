@@ -3,12 +3,21 @@
 import dbConnect from "@/lib/mongodb";
 import PaymentOption from "@/models/PaymentOption";
 import BankPaymentOption from "@/models/BankPaymentOption";
+import PayPalPaymentOption from "@/models/PayPalPaymentOption";
 
 export interface PaymentOptionData {
     id: string;
     network: string;
     ticker: string;
     walletAddress: string;
+}
+
+export interface PayPalPaymentOptionData {
+    id: string;
+    accountName: string;
+    email: string;
+    paypalLink?: string;
+    instructions?: string;
 }
 
 export interface BankPaymentOptionData {
@@ -58,6 +67,24 @@ export async function getBankPaymentOptions(): Promise<BankPaymentOptionData[]> 
         }));
     } catch (error) {
         console.error("Failed to fetch bank payment options:", error);
+        return [];
+    }
+}
+
+export async function getPayPalPaymentOptions(): Promise<PayPalPaymentOptionData[]> {
+    try {
+        await dbConnect();
+        const options = await PayPalPaymentOption.find({ isActive: true }).lean();
+
+        return options.map((opt: any) => ({
+            id: opt._id.toString(),
+            accountName: opt.accountName,
+            email: opt.email,
+            paypalLink: opt.paypalLink,
+            instructions: opt.instructions,
+        }));
+    } catch (error) {
+        console.error("Failed to fetch PayPal payment options:", error);
         return [];
     }
 }

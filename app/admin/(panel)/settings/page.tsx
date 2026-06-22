@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import CompanyDetails from "@/models/CompanyDetails";
 import PaymentOption from "@/models/PaymentOption";
 import BankPaymentOption from "@/models/BankPaymentOption";
+import PayPalPaymentOption from "@/models/PayPalPaymentOption";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import SettingsTabs from "@/components/admin/SettingsTabs";
 
@@ -30,6 +31,15 @@ export default async function AdminSettingsPage() {
     // Fetch Bank Payment Options
     const rawBankOptions = await BankPaymentOption.find().sort({ createdAt: -1 }).lean();
     const bankPaymentOptions = rawBankOptions.map((p: any) => ({
+        ...p,
+        _id: p._id?.toString(),
+        createdAt: p.createdAt?.toISOString(),
+        updatedAt: p.updatedAt?.toISOString()
+    }));
+
+    // Fetch PayPal Payment Options
+    const rawPayPalOptions = await PayPalPaymentOption.find().sort({ createdAt: -1 }).lean();
+    const paypalPaymentOptions = rawPayPalOptions.map((p: any) => ({
         ...p,
         _id: p._id?.toString(),
         createdAt: p.createdAt?.toISOString(),
@@ -67,6 +77,7 @@ export default async function AdminSettingsPage() {
                 companyDetails={serializedCompanyDetails}
                 paymentOptions={paymentOptions}
                 bankPaymentOptions={bankPaymentOptions}
+                paypalPaymentOptions={paypalPaymentOptions}
                 investmentPlans={investmentPlans}
             />
         </div>

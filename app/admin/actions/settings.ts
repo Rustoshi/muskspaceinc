@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import CompanyDetails from "@/models/CompanyDetails";
 import PaymentOption from "@/models/PaymentOption";
 import BankPaymentOption from "@/models/BankPaymentOption";
+import PayPalPaymentOption from "@/models/PayPalPaymentOption";
 import InvestmentPlan from "@/models/InvestmentPlan";
 import User from "@/models/User";
 import { revalidatePath } from "next/cache";
@@ -87,6 +88,34 @@ export async function deleteBankPaymentOption(id: string) {
     try {
         await dbConnect();
         await BankPaymentOption.findByIdAndDelete(id);
+        revalidatePath('/admin/settings');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// --- PAYPAL PAYMENT OPTION ACTIONS ---
+export async function addPayPalPaymentOption(formData: FormData) {
+    try {
+        await dbConnect();
+        await PayPalPaymentOption.create({
+            accountName: formData.get('accountName'),
+            email: formData.get('email'),
+            paypalLink: formData.get('paypalLink') || undefined,
+            instructions: formData.get('instructions') || undefined,
+        });
+        revalidatePath('/admin/settings');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deletePayPalPaymentOption(id: string) {
+    try {
+        await dbConnect();
+        await PayPalPaymentOption.findByIdAndDelete(id);
         revalidatePath('/admin/settings');
         return { success: true };
     } catch (error: any) {

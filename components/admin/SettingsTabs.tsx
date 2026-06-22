@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Wallet, TrendingUp, Plus, Edit, Trash2, Check, X, Loader2, Save, Shield, Landmark } from "lucide-react";
-import { updateCompanyDetails, addPaymentOption, deletePaymentOption, addBankPaymentOption, deleteBankPaymentOption, addInvestmentPlan, updateInvestmentPlan, deleteInvestmentPlan, updateAdminPassword } from "@/app/admin/actions/settings";
+import { Building2, Wallet, TrendingUp, Plus, Edit, Trash2, Check, X, Loader2, Save, Shield, Landmark, AtSign } from "lucide-react";
+import { updateCompanyDetails, addPaymentOption, deletePaymentOption, addBankPaymentOption, deleteBankPaymentOption, addPayPalPaymentOption, deletePayPalPaymentOption, addInvestmentPlan, updateInvestmentPlan, deleteInvestmentPlan, updateAdminPassword } from "@/app/admin/actions/settings";
 import { useRouter } from "next/navigation";
 
-export default function SettingsTabs({ companyDetails, paymentOptions, bankPaymentOptions, investmentPlans }: { companyDetails: any, paymentOptions: any[], bankPaymentOptions: any[], investmentPlans: any[] }) {
+export default function SettingsTabs({ companyDetails, paymentOptions, bankPaymentOptions, paypalPaymentOptions = [], investmentPlans }: { companyDetails: any, paymentOptions: any[], bankPaymentOptions: any[], paypalPaymentOptions?: any[], investmentPlans: any[] }) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'general' | 'payment' | 'plans' | 'security'>('general');
 
@@ -16,6 +16,7 @@ export default function SettingsTabs({ companyDetails, paymentOptions, bankPayme
     const [securitySuccess, setSecuritySuccess] = useState(false);
     const [showAddPayment, setShowAddPayment] = useState(false);
     const [showAddBankPayment, setShowAddBankPayment] = useState(false);
+    const [showAddPayPalPayment, setShowAddPayPalPayment] = useState(false);
     const [showAddPlan, setShowAddPlan] = useState(false);
     const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
     const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -62,6 +63,24 @@ export default function SettingsTabs({ companyDetails, paymentOptions, bankPayme
         if (!confirm("Are you sure you want to delete this bank payment option?")) return;
         setLoadingId(id);
         await deleteBankPaymentOption(id);
+        setLoadingId(null);
+        router.refresh();
+    };
+
+    const handleAddPayPalPayment = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setLoadingId('new-paypal-payment');
+        const formData = new FormData(e.currentTarget);
+        await addPayPalPaymentOption(formData);
+        setShowAddPayPalPayment(false);
+        setLoadingId(null);
+        router.refresh();
+    };
+
+    const handleDeletePayPalPayment = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this PayPal payment option?")) return;
+        setLoadingId(id);
+        await deletePayPalPaymentOption(id);
         setLoadingId(null);
         router.refresh();
     };
@@ -328,6 +347,86 @@ export default function SettingsTabs({ companyDetails, paymentOptions, bankPayme
                                                 <div className="pt-2 border-t border-white/[0.05]">
                                                     <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Instructions</div>
                                                     <div className="text-xs text-white/50 italic">{bank.instructions}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* PAYPAL PAYMENT METHODS */}
+                        <div className="mt-10 pt-8 border-t border-white/[0.06]">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                <div className="flex items-center gap-3">
+                                    <AtSign className="w-4 h-4 text-white/40" />
+                                    <h3 className="text-sm font-bold tracking-widest text-white uppercase font-montserrat">PayPal Accounts</h3>
+                                </div>
+                                <button onClick={() => setShowAddPayPalPayment(!showAddPayPalPayment)} className="flex items-center gap-2 bg-white/[0.06] hover:bg-white/[0.10] border border-white/[0.1] text-white px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors shrink-0">
+                                    {showAddPayPalPayment ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                    {showAddPayPalPayment ? 'Cancel' : 'Add PayPal Account'}
+                                </button>
+                            </div>
+
+                            {showAddPayPalPayment && (
+                                <form onSubmit={handleAddPayPalPayment} className="bg-white/[0.02] border border-[#0070ba]/40 rounded-xl p-6 mb-6 animate-in fade-in slide-in-from-top-4">
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-4">New PayPal Account</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Account Name <span className="text-red-500">*</span></label>
+                                            <input name="accountName" type="text" required placeholder="e.g. MuskSpace Inc." className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-[#0070ba]/60 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">PayPal Email <span className="text-red-500">*</span></label>
+                                            <input name="email" type="email" required placeholder="e.g. payments@muskspace.com" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-[#0070ba]/60 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">PayPal.Me Link</label>
+                                            <input name="paypalLink" type="text" placeholder="e.g. https://paypal.me/muskspace (optional)" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-[#0070ba]/60 transition-colors" />
+                                        </div>
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <label className="text-[10px] uppercase tracking-widest text-white/40">Special Instructions</label>
+                                            <textarea name="instructions" rows={2} placeholder="e.g. Send as Friends & Family, include your username (optional)" className="w-full bg-black/50 border border-white/[0.1] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-[#0070ba]/60 transition-colors resize-none" />
+                                        </div>
+                                    </div>
+                                    <button disabled={loadingId === 'new-paypal-payment'} type="submit" className="bg-white hover:bg-white/90 text-black px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors flex items-center gap-2">
+                                        {loadingId === 'new-paypal-payment' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save PayPal Account'}
+                                    </button>
+                                </form>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {paypalPaymentOptions.length === 0 ? (
+                                    <div className="col-span-full p-8 text-center border border-white/[0.05] border-dashed rounded-xl text-white/40 text-sm">No PayPal accounts configured.</div>
+                                ) : paypalPaymentOptions.map((pp: any) => (
+                                    <div key={pp._id} className="bg-white/[0.02] border border-white/[0.08] hover:border-white/[0.15] rounded-xl p-5 transition-all group relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-16 h-16 -mr-8 -mt-8 rotate-45 bg-[#0070ba]/20"></div>
+                                        <div className="flex justify-between items-start mb-4 relative z-10">
+                                            <div>
+                                                <h4 className="font-bold text-white tracking-widest uppercase">{pp.accountName}</h4>
+                                                <span className="text-[10px] text-white/40 tracking-widest uppercase">PayPal</span>
+                                            </div>
+                                            <div className="flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                <button disabled={loadingId === pp._id} onClick={() => handleDeletePayPalPayment(pp._id)} className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors text-red-400">
+                                                    {loadingId === pp._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="bg-black/30 p-3 rounded-lg relative z-10 space-y-2">
+                                            <div>
+                                                <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Email</div>
+                                                <div className="text-xs font-mono text-white/70 break-all">{pp.email}</div>
+                                            </div>
+                                            {pp.paypalLink && (
+                                                <div>
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">PayPal.Me</div>
+                                                    <div className="text-xs font-mono text-white/70 break-all">{pp.paypalLink}</div>
+                                                </div>
+                                            )}
+                                            {pp.instructions && (
+                                                <div className="pt-2 border-t border-white/[0.05]">
+                                                    <div className="text-[10px] tracking-widest uppercase text-white/40 mb-0.5">Instructions</div>
+                                                    <div className="text-xs text-white/50 italic">{pp.instructions}</div>
                                                 </div>
                                             )}
                                         </div>
